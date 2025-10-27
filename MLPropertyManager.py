@@ -79,7 +79,7 @@ print('----------------------------------------------------> IS THE STARTUP PHAS
 
 st.set_page_config(page_title="ML Property Manager", layout="centered")
 st.header("ML Property Manager")
-st.subheader(str(st.session_state.Year) + " Reporting")
+#st.subheader(str(st.session_state.Year) + " Reporting")
 
 #=============================================================================================================================
 # For every managed strucure Read the data contained in the related Google Spreadsheet 
