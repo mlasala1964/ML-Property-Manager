@@ -599,7 +599,16 @@ WHERE strftime('%Y', Day) = '{year}'
         # yearly_net_profit = {yearly_net_profit}
         # monthly_net_profit = {monthly_net_profit}
         # ''')
-        
+
+        with st.expander(label = "Etichetta", expanded = False, Key = "Expander_01"):
+            st.markdown(f"""     (Each booked night brings {daily_net_profit:.2f}€ net revenue to our portfolio.)
+
+             With an occupancy rate of {occupancy_rate:.1f}%, 
+             the annual net income per apartment is {yearly_net_profit:.2f}€
+             the monthly net income per apartment is {monthly_net_profit:.2f}€.
+                     
+                         """)
+            
         st.markdown(f""" ### High level {year} insights""")
         st.markdown(f""" ######  + Total Booked Nights: {booked_nights} """)
         #st.markdown(f""" *(The total number of nights a property was booked .)""")
