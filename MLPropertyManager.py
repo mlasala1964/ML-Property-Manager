@@ -578,7 +578,7 @@ WHERE strftime('%Y', Day) = '{year}'
         available_nights = row[1]
         occupancy_rate =  booked_nights / available_nights * 100
         revenue = row[2]
-        daily_revenue = row[2] / row[0]
+        daily_revenue = revenue / booked_nights
         common_cost = row[3]
         net_profit = revenue - common_cost
         daily_net_profit = net_profit / booked_nights
@@ -611,7 +611,7 @@ WHERE strftime('%Y', Day) = '{year}'
         st.markdown(f"""     (The total revenue earned per booked night.)""")
         st.markdown(f""" #####  + Net Profit: {net_profit:.2f}€ """)
         st.markdown(f"""     (The real profit after subtracting all  costs and expenses(patrimonial taxes, utilities, maintenance, etc.) from the revenue.)""")
-        st.markdown(f""" #####  + Net Profit peer night: {daily_net_profit:.2f}€ """)
+        st.markdown(f""" #####  + Net Profit per night: {daily_net_profit:.2f}€ """)
         st.markdown(f"""     (Each booked night brings {daily_net_profit:.2f}€ net revenue to our portfolio.)
 
          With an occupancy rate of {occupancy_rate:.1f}%, 
