@@ -600,7 +600,7 @@ WHERE strftime('%Y', Day) = '{year}'
         # monthly_net_profit = {monthly_net_profit}
         # ''')
 
-        with st.expander(label = "Etichetta", expanded = False, Key = "Expander_01"):
+        with st.expander("Etichetta", expanded = False):
             st.write(f"""     (Each booked night brings {daily_net_profit:.2f}€ net revenue to our portfolio.)
 
              With an occupancy rate of {occupancy_rate:.1f}%, 
