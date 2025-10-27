@@ -575,7 +575,8 @@ WHERE strftime('%Y', Day) = '{year}'
     row = cursor.fetchone()
     if row:
         booked_nights = row[0]
-        occupancy_rate =  row[0] / row[1] * 100
+        available_nights = row[1]
+        occupancy_rate =  booked_nights / available_nights * 100
         revenue = row[2]
         daily_revenue = row[2] / row[0]
         common_cost = row[3]
@@ -599,10 +600,11 @@ WHERE strftime('%Y', Day) = '{year}'
         # ''')
         
         st.markdown(f""" ### High level {year} insights""")
-        st.markdown(f""" #####  + Total Booked Nights: {booked_nights} """)
-        st.markdown(f"""     (The total number of nights a property was reserved.)""")
-        st.markdown(f""" #####  + Occupancy Rate: {occupancy_rate:.1f}% """)
-        st.markdown(f"""     (The percentage of nights the property was booked out of the total available nights.)""")
+        st.markdown(f""" ######  + Total Booked Nights: {booked_nights} """)
+        #st.markdown(f""" *(The total number of nights a property was booked .)""")
+        st.markdown(f""" ######  + Occupancy Rate: {occupancy_rate:.1f}% """)
+        st.markdown(f""" *(The percentage of nights the property was booked out of the total available nights - {available_nights} - )*""")
+        st.divider()
         st.markdown(f""" #####  + Total Revenue: {revenue:.2f}€ """)
         st.markdown(f"""     (The total income generated from all sources, including taxes, cleaning and laundry costs and platform fees.)""")
         st.markdown(f""" #####  + Average Daily Revenue (ADR): {daily_revenue:.2f}€ """)
@@ -612,9 +614,9 @@ WHERE strftime('%Y', Day) = '{year}'
         st.markdown(f""" #####  + Net Profit peer night: {daily_net_profit:.2f}€ """)
         st.markdown(f"""     (Each booked night brings {daily_net_profit:.2f}€ net revenue to our portfolio.)
 
-                             With an occupancy rate of {occupancy_rate:.1f}%, 
-                         ###    the annual  net income is {yearly_net_profit:.2f}€
-                         ###    the monthly net income is {monthly_net_profit:.2f}€.
+         With an occupancy rate of {occupancy_rate:.1f}%, 
+         the annual net income per apartment is {yearly_net_profit:.2f}€
+         the monthly net income per apartment is {monthly_net_profit:.2f}€.
                      
                      """)
     else:
