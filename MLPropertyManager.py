@@ -601,7 +601,7 @@ WHERE strftime('%Y', Day) = '{year}'
         # ''')
 
         with st.expander(label = "Etichetta", expanded = False, Key = "Expander_01"):
-            st.markdown(f"""     (Each booked night brings {daily_net_profit:.2f}€ net revenue to our portfolio.)
+            st.write(f"""     (Each booked night brings {daily_net_profit:.2f}€ net revenue to our portfolio.)
 
              With an occupancy rate of {occupancy_rate:.1f}%, 
              the annual net income per apartment is {yearly_net_profit:.2f}€
