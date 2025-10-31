@@ -95,8 +95,8 @@ def ReadGSheets():
     gs_connection = gspread.service_account_from_dict(credentials_dict)
 
 
-    Structures = [  {'Ordinal': 1, 'Structure':'Dalla Nonna', 'StructureAddress':'Via ARMENISE 7',     'GoogleSheetName': 'Dalla Nonna Agenda 2025', 'From Date': '2025-05-31'},
-                    {'Ordinal': 2, 'Structure':'La Cecchina', 'StructureAddress':'Via POSTIGLIONE 14b', 'GoogleSheetName': 'La Cecchina Agenda 2025', 'From Date': '2025-08-01'} 
+    Structures = [  {'Ordinal': 1, 'Structure':'Dalla Nonna', 'StructureAddress':'Via ARMENISE 7',     'GoogleSheetName': 'Dalla Nonna Agenda 2025', 'From Date': '2025-05-31', 'Initial Investment': 150000.00},
+                    {'Ordinal': 2, 'Structure':'La Cecchina', 'StructureAddress':'Via POSTIGLIONE 14b', 'GoogleSheetName': 'La Cecchina Agenda 2025', 'From Date': '2025-08-01', 'Initial Investment': 150000.00} 
                 ]
     for structure in Structures:
         # Open a sheet from a spreadsheet in one go
@@ -565,70 +565,95 @@ def HighLevelInsights():
 SELECT 
     COUNT(DISTINCT(bookings_by_day.booking_by_day_id))                                                                          AS BookedNights
     ,(SELECT SUM(common_costs_by_year.Days) FROM common_costs_by_year WHERE common_costs_by_year.Year = {year})                 AS AvailableNights
-    ,SUM(bookings_by_day.HostEarningsByDay) - SUM(bookings_by_day.CleaningCostByDay) - SUM(bookings_by_day.LaundryCostByDay)    AS  TotalRevenue
+    ,SUM(bookings_by_day.HostEarningsByDay)                                                                                     AS TotalRevenue
     ,(SELECT SUM(PropertyTax + CondoFees + ElectricityCost + GasCost + WiFiCost + MaintenanceMiscellaneousCost + AmenitiesCost) FROM common_costs_by_year WHERE Year = {year}) 
                                                                                                                                 AS TotalCommonCost
+    ,(SUM(bookings_by_day.CleaningCostByDay) + SUM(bookings_by_day.LaundryCostByDay))                                           AS CleaningCost
+    ,COUNT(DISTINCT(bookings_by_day.booking_id))                                                                                AS StayCount
+    ,(SELECT SUM(MaintenanceMiscellaneousCost) FROM common_costs_by_year WHERE Year = {year})                                   AS MaintFurnishCost
+    ,(SELECT COUNT(*) from structures)                                                                                          AS StructureCount
+    ,(SELECT GROUP_CONCAT(StructureName, ', ') from structures ORDER BY Ordinal)                                                AS StructureNamesList
+
 FROM bookings_by_day
 WHERE strftime('%Y', Day) = '{year}'
     """
+
     
     cursor.execute(select)
     row = cursor.fetchone()
     if row:
+        structure_count = row[7]
+        structure_names_list = row[8]
+
         booked_nights = row[0]
         available_nights = row[1]
         occupancy_rate =  booked_nights / available_nights * 100
+        number_of_stays = row[5]
+
         revenue = row[2]
-        daily_revenue = revenue / booked_nights
+        cleaning_cost = row[4]
+        net_revenue = revenue - cleaning_cost
+
         common_cost = row[3]
-        net_profit = revenue - common_cost
+        maint_furnish_cost = row[6]
+        net_profit = net_revenue - common_cost
+
+        estimated_full_year_profit = net_profit * 364 / available_nights # the big assumption is to keep for all the year the same occupancy rate and revenue, on average  
+        estimated_full_month_profit = estimated_full_year_profit / 12
+
+
+        daily_revenue = revenue / booked_nights
         daily_net_profit = net_profit / booked_nights
         yearly_booked_nights = occupancy_rate * 364 / 100
         yearly_net_profit = yearly_booked_nights * daily_net_profit
         monthly_net_profit = yearly_net_profit / 12
 
-        # print(f'''
-        # booked_nights = {booked_nights}
-        # occupancy_rate =  {occupancy_rate}
-        # revenue = {revenue}
-        # daily_revenue = {daily_revenue}
-        # common_cost = {common_cost}
-        # net_profit = {net_profit}
-        # daily_net_profit = {daily_net_profit}
-        # yearly_booked_nights = {yearly_booked_nights}
-        # yearly_net_profit = {yearly_net_profit}
-        # monthly_net_profit = {monthly_net_profit}
-        # ''')
 
-        with st.expander("Etichetta", expanded = False):
-            st.write(f"""     (Each booked night brings {daily_net_profit:.2f}€ net revenue to our portfolio.)
+        yearly_net_profit1 = net_profit * 364 / available_nights
+        monthly_net_profit1 = yearly_net_profit1 / 12
 
-             With an occupancy rate of {occupancy_rate:.1f}%, 
-             the annual net income per apartment is {yearly_net_profit:.2f}€
-             the monthly net income per apartment is {monthly_net_profit:.2f}€.
-                     
-                         """)
-            
-        st.markdown(f""" ### High level {year} insights""")
-        st.markdown(f""" ######  + Total Booked Nights: {booked_nights} """)
-        #st.markdown(f""" *(The total number of nights a property was booked .)""")
-        st.markdown(f""" ######  + Occupancy Rate: {occupancy_rate:.1f}% """)
-        st.markdown(f""" *(The percentage of nights the property was booked out of the total available nights - {available_nights} - )*""")
+
+
+
+
+
+        st.write(f"""
+                 The following insights are based on  ***{year}*** booking data and actual costs to date*, plus projections through December 31st. 
+                 The managed structures are {structure_count} : *{structure_names_list}*""")
+        with st.expander(f"**On average, the *estimated* monthly net profit is €{estimated_full_month_profit:.2f} per apartment.**", expanded = False):
+            #st.write(f"Nights sold : {booked_nights} on {available_nights} nights (Rate of {occupancy_rate:.1f}%)")
+            #st.write(f"Revenue     : {revenue:.2f} € (after commis. & taxes)")
+            #st.write(f"Cleaning Cost: {cleaning_cost:.2f} € (for {number_of_stays} stays)")
+            #st.write(f"Net Revenue: {net_revenue:.2f} € (after clean & laundry)")
+            #st.write(f"Common Cost: {common_cost:.2f} € (Mainten.: {maint_furnish_cost:.2f}€)")
+            #st.write(f"Net Profit: {net_profit:.2f} € (Bottom Line Profit)")
+            #st.write(f"")
+            #st.write(f"**Estimated Full Year Profit per Structure: {estimated_full_year_profit:.2f} €**")
+            #st.write(f"The strong assumption is that the average occupancy rate and revenue will remain constant throughout the year")
+
+            st.markdown(f"""
+                     Nights sold : {booked_nights} on {available_nights} nights (Rate of {occupancy_rate:.1f}%)<br>
+                     Revenue     : {revenue:.2f} € (after commis. & taxes)<br>
+                     Cleaning Cost: {cleaning_cost:.2f} € (for {number_of_stays} stays)<br>
+                     Net Revenue: {net_revenue:.2f} € (after clean & laundry)<br>
+                     Common Cost: {common_cost:.2f} € (Mainten.: {maint_furnish_cost:.2f}€)<br>
+                     Net Profit: {net_profit:.2f} € (Bottom Line Profit)<br>
+
+
+                     #### Estimated Full Year Profit per Structure: {estimated_full_year_profit:.2f} €
+                     The strong assumption is that the average occupancy rate and revenue will remain constant throughout the year
+
+                     """,
+                     unsafe_allow_html = True)
+
+        #st.write(f"")
+        #st.write(f"")
+        #st.write(f"")
+        #st.write(f"")
+        #st.write(f"")
+        #st.write(f"")
         st.divider()
-        st.markdown(f""" #####  + Total Revenue: {revenue:.2f}€ """)
-        st.markdown(f"""     (The total income generated from all sources, including taxes, cleaning and laundry costs and platform fees.)""")
-        st.markdown(f""" #####  + Average Daily Revenue (ADR): {daily_revenue:.2f}€ """)
-        st.markdown(f"""     (The total revenue earned per booked night.)""")
-        st.markdown(f""" #####  + Net Profit: {net_profit:.2f}€ """)
-        st.markdown(f"""     (The real profit after subtracting all  costs and expenses(patrimonial taxes, utilities, maintenance, etc.) from the revenue.)""")
-        st.markdown(f""" #####  + Net Profit per night: {daily_net_profit:.2f}€ """)
-        st.markdown(f"""     (Each booked night brings {daily_net_profit:.2f}€ net revenue to our portfolio.)
-
-         With an occupancy rate of {occupancy_rate:.1f}%, 
-         the annual net income per apartment is {yearly_net_profit:.2f}€
-         the monthly net income per apartment is {monthly_net_profit:.2f}€.
-                     
-                     """)
+            
     else:
         #print('Error: /n' + select)
         st.write('Error in: /n' + select)
