@@ -647,11 +647,6 @@ WHERE strftime('%Y', Day) = '{year}'
                      unsafe_allow_html = True)
 
         #st.write(f"")
-        #st.write(f"")
-        #st.write(f"")
-        #st.write(f"")
-        #st.write(f"")
-        #st.write(f"")
         st.divider()
             
     else:
