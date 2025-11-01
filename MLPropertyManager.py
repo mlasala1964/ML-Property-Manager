@@ -79,7 +79,6 @@ print('----------------------------------------------------> IS THE STARTUP PHAS
 
 st.set_page_config(page_title="ML Property Manager", layout="centered")
 st.header("ML Property Manager")
-#st.subheader(str(st.session_state.Year) + " Reporting")
 
 #=============================================================================================================================
 # For every managed strucure Read the data contained in the related Google Spreadsheet 
@@ -191,8 +190,8 @@ def CleaningData(connection, Structures):
         # print(row)
 
     #3. Check for not overlapping periods and for "gap" periods (time window conseecutivity)
-    #print('---------- CHECK for any Gap or Overlapping periods in the booking rows -----------------------')
-    st.write('---------- CHECK for any Gap or Overlapping periods in the booking rows -----------------------')
+    print('---------- CHECK for any Gap or Overlapping periods in the booking rows -----------------------')
+    #st.write('---------- CHECK for any Gap or Overlapping periods in the booking rows -----------------------')
     for structure in Structures:
         table_name = structure['GoogleSheetName']
         structure_name = structure['Structure']
@@ -217,11 +216,12 @@ def CleaningData(connection, Structures):
         cursor.execute(select)
         rows = cursor.fetchall()
         if not rows:
-            #print(f'The booking\'s dates are well set in the "{table_name}" sheet for the "{structure_name}" strucuture')
-            st.write(f'The booking\'s dates are well set in the "{table_name}" sheet for the "{structure_name}" strucuture')
+            print(f'The booking\'s dates are well set in the "{table_name}" sheet for the "{structure_name}" strucuture')
+            #st.write(f'The booking\'s dates are well set in the "{table_name}" sheet for the "{structure_name}" strucuture')
         else:
             for row in rows:
                 #print(f'"{structure_name}": in the row {row[1]} of the sheet "{table_name}" the booking has {row[3]} as last date that is not contiguous with next booking\'s  start date')
+                #st.write('---------- CHECK for any Gap or Overlapping periods in the booking rows -----------------------')
                 st.write(f'"{structure_name}": in the row {row[1]} of the sheet "{table_name}" the booking has {row[3]} as last date that is not contiguous with next booking\'s  start date')
 
 #===========================================================================================================================#
@@ -276,8 +276,8 @@ def LoadDWH(connection, Structures):
     columns_str = 'booking_id INTEGER PRIMARY KEY, ' + ', '.join(f'{col}' for col in columns)
     create_table_sql = f'CREATE TABLE IF NOT EXISTS "{table_name}" ({columns_str})'
     cursor.execute(create_table_sql)
-    #print(f'Table "{table_name}" successfully created in memory.')
-    st.write(f'Table "{table_name}" successfully created in memory.')
+    print(f'Table "{table_name}" successfully created in memory.')
+    #st.write(f'Table "{table_name}" successfully created in memory.')
 
 # 1.a load "bookings" table from every table defined in the "Structures" dictionary
 #     Only the real booked are loaded (Status <> 'Free') and not the free slots - not booked or not still booked time windows -
@@ -325,12 +325,12 @@ def LoadDWH(connection, Structures):
     cursor.execute(select)
     rows = cursor.fetchall()
     if not rows:
-        #print(f'ERROR: NO ROWS LOADED IN THE <bookings> TABLE')
-        st.writeite(f'ERROR: NO ROWS LOADED IN THE <bookings> TABLE')
+        print(f'ERROR: NO ROWS LOADED IN THE <bookings> TABLE')
+        #st.writeite(f'ERROR: NO ROWS LOADED IN THE <bookings> TABLE')
     else:
         for row in rows:
-            #print(f'Loaded {row[1]} rows (bookings) for {row[0]} structure')
-            st.write(f'Loaded {row[1]} rows (bookings) for {row[0]} structure')
+            print(f'Loaded {row[1]} rows (bookings) for {row[0]} structure')
+            #st.write(f'Loaded {row[1]} rows (bookings) for {row[0]} structure')
 
 #=============================================================================================================================
 # 2. Create "bookings by day" table": Fact table containing revenue and cost metrics at a daily granularity.  
@@ -422,6 +422,7 @@ LIMIT 10
 'AvailableFromDate DATE',
 'AvailableToDate DATE',
 'GoogleSheetName TEXT',
+'InitialInvestment REAL',
 'Ordinal INTEGER'
     ]
     columns_str = ', '.join(f'{col}' for col in columns)
@@ -438,7 +439,7 @@ LIMIT 10
         select = f'SELECT DATE(MAX("To Date")) FROM "{structure['GoogleSheetName']}"'
         cursor.execute(select)
         row = cursor.fetchone()
-        values = [structure['Structure'], structure['StructureAddress'], structure['From Date'], row[0], structure['GoogleSheetName'], structure['Ordinal']]
+        values = [structure['Structure'], structure['StructureAddress'], structure['From Date'], row[0], structure['GoogleSheetName'], structure['Initial Investment'], structure['Ordinal']]
         cursor.execute(insert_sql, values)
     #print(f'Table "{table_name}" successfully loaded.')
     
@@ -573,7 +574,8 @@ SELECT
     ,(SELECT SUM(MaintenanceMiscellaneousCost) FROM common_costs_by_year WHERE Year = {year})                                   AS MaintFurnishCost
     ,(SELECT COUNT(*) from structures)                                                                                          AS StructureCount
     ,(SELECT GROUP_CONCAT(StructureName, ', ') from structures ORDER BY Ordinal)                                                AS StructureNamesList
-
+    ,(SELECT AVG(InitialInvestment) from structures)                                                                             AS AverageIntialInvestment
+                 
 FROM bookings_by_day
 WHERE strftime('%Y', Day) = '{year}'
     """
@@ -601,6 +603,10 @@ WHERE strftime('%Y', Day) = '{year}'
         estimated_full_year_profit = net_profit * 364 / available_nights # the big assumption is to keep for all the year the same occupancy rate and revenue, on average  
         estimated_full_month_profit = estimated_full_year_profit / 12
 
+        average_intial_investment = row[9]
+
+
+
 
         daily_revenue = revenue / booked_nights
         daily_net_profit = net_profit / booked_nights
@@ -616,10 +622,15 @@ WHERE strftime('%Y', Day) = '{year}'
 
 
 
-
         st.write(f"""
-                 The following insights are based on  ***{year}*** booking data and actual costs to date*, plus projections through December 31st. 
-                 The managed structures are {structure_count} : *{structure_names_list}*""")
+                 The following insights are based on  ***{year}*** booking data and actual costs to date, plus projections through December 31st.
+                 """)
+        st.write(f""" 
+                 The managed structures are {structure_count} : *{structure_names_list}*
+                 """)
+#
+#       1st Insight: here a sort of simplified Profit and Loss (P&L) Statement:
+#
         with st.expander(f"**On average, the *estimated* monthly net profit is €{estimated_full_month_profit:.2f} per apartment.**", expanded = False):
             #st.write(f"Nights sold : {booked_nights} on {available_nights} nights (Rate of {occupancy_rate:.1f}%)")
             #st.write(f"Revenue     : {revenue:.2f} € (after commis. & taxes)")
@@ -645,6 +656,29 @@ WHERE strftime('%Y', Day) = '{year}'
 
                      """,
                      unsafe_allow_html = True)
+
+#
+#       2nd Insight: Can this job - i.e. property management - replace an average employment's salary?
+#
+        target_yeraly_profit = 40000
+        
+        with st.expander(f"""**To achieve a net annual profit of {target_yeraly_profit / 1000:.1f} K€ - managerial annual net salary - you have  
+                         to manage {target_yeraly_profit/estimated_full_year_profit:.1f} flats as like as {structure_names_list}.
+                         To reach the goal you have to buy and set-up other {target_yeraly_profit/estimated_full_year_profit - structure_count:.1f} 
+                         units with an *estimated* investment of about {(target_yeraly_profit/estimated_full_year_profit - structure_count) * average_intial_investment / 1000:.1f} K€.**""", expanded = False):
+#If an apartment has historically produced an average net profit of €100 to date, 
+# then five apartments are required to meet the net profit target of €400.
+            st.markdown(f"""
+                     1.0 Flats ==> net {estimated_full_year_profit / 1000 :.1f} K€ per year<br>
+                     {target_yeraly_profit/estimated_full_year_profit:.1f} Flats ==> net {target_yeraly_profit / 1000 :.1f} K€ per year<br>
+                     """,
+                     unsafe_allow_html = True)
+
+#
+#       3rd Insight: Is this investment (buying flats like these ones in my city) profitable?
+#
+
+
 
         #st.write(f"")
         st.divider()
@@ -841,22 +875,22 @@ if not st.session_state.LoggedIn:
     LoadTablesFromSheets(connection, Structures)
     CleaningData(connection, Structures)
     LoadDWH(connection, Structures)
-    st.write('The start-up is completed: the google sheet\'s data have been controlled and moved in the SQL database.')
+    #st.write('The start-up is completed: the google sheet\'s data have been controlled and moved in the SQL database.')
 
     st.session_state.LoggedIn = 1  # Terminated the computation to do only in the login phase
-    st.write('Press the OK button to proceed')
-    if st.button("OK"):
-        pass
-else:
-    year = st.session_state.Year
-    HighLevelInsights_page = st.Page(HighLevelInsights, title= str(year) + " Insight", icon=":material/summarize:")
-    InsightsByStructure_page = st.Page(HighLevelInsightsByStructure, title= str(year) + " InsightsByStructure", icon=":material/monitoring:")
-    pg = st.navigation(
-            {
-                "Insights": [HighLevelInsights_page, InsightsByStructure_page],
-            }
-        )
-    pg.run()
+    #st.write('Press the OK button to proceed')
+    #if st.button("OK"):
+    #    pass
+
+year = st.session_state.Year
+HighLevelInsights_page = st.Page(HighLevelInsights, title= str(year) + " Macro Figures", icon=":material/summarize:")
+InsightsByStructure_page = st.Page(HighLevelInsightsByStructure, title= str(year) + " Figures by Structure", icon=":material/monitoring:")
+pg = st.navigation(
+        {
+            "Insights": [HighLevelInsights_page, InsightsByStructure_page],
+        }
+    )
+pg.run()
 
 
                                           
