@@ -619,29 +619,20 @@ WHERE strftime('%Y', Day) = '{year}'
         monthly_net_profit1 = yearly_net_profit1 / 12
 
 
-
-
-
         st.write(f"""
                  The following insights are based on  ***{year}*** booking data and actual costs to date, plus projections through December 31st.
                  """)
         st.write(f""" 
                  The managed structures are {structure_count} : *{structure_names_list}*
                  """)
+        st.divider()
 #
 #       1st Insight: here a sort of simplified Profit and Loss (P&L) Statement:
 #
+        st.markdown(f"""
+                 ###### Very simply, which are the Profit and Loss (P&L) Statement? 
+                 """)
         with st.expander(f"**On average, the *estimated* monthly net profit is €{estimated_full_month_profit:.2f} per apartment.**", expanded = False):
-            #st.write(f"Nights sold : {booked_nights} on {available_nights} nights (Rate of {occupancy_rate:.1f}%)")
-            #st.write(f"Revenue     : {revenue:.2f} € (after commis. & taxes)")
-            #st.write(f"Cleaning Cost: {cleaning_cost:.2f} € (for {number_of_stays} stays)")
-            #st.write(f"Net Revenue: {net_revenue:.2f} € (after clean & laundry)")
-            #st.write(f"Common Cost: {common_cost:.2f} € (Mainten.: {maint_furnish_cost:.2f}€)")
-            #st.write(f"Net Profit: {net_profit:.2f} € (Bottom Line Profit)")
-            #st.write(f"")
-            #st.write(f"**Estimated Full Year Profit per Structure: {estimated_full_year_profit:.2f} €**")
-            #st.write(f"The strong assumption is that the average occupancy rate and revenue will remain constant throughout the year")
-
             st.markdown(f"""
                      Nights sold : {booked_nights} on {available_nights} nights (Rate of {occupancy_rate:.1f}%)<br>
                      Revenue     : {revenue:.2f} € (after commis. & taxes)<br>
@@ -656,31 +647,57 @@ WHERE strftime('%Y', Day) = '{year}'
 
                      """,
                      unsafe_allow_html = True)
-
+        st.divider()
 #
 #       2nd Insight: Can this job - i.e. property management - replace an average employment's salary?
 #
         target_yeraly_profit = 40000
-        
+        st.markdown(f"""
+                 ###### Can this job - i.e. property management - replace an average employment's salary? 
+                 """)
         with st.expander(f"""**To achieve a net annual profit of {target_yeraly_profit / 1000:.1f} K€ - managerial annual net salary - you have  
                          to manage {target_yeraly_profit/estimated_full_year_profit:.1f} flats as like as {structure_names_list}.
                          To reach the goal you have to buy and set-up other {target_yeraly_profit/estimated_full_year_profit - structure_count:.1f} 
                          units with an *estimated* investment of about {(target_yeraly_profit/estimated_full_year_profit - structure_count) * average_intial_investment / 1000:.1f} K€.**""", expanded = False):
-#If an apartment has historically produced an average net profit of €100 to date, 
-# then five apartments are required to meet the net profit target of €400.
             st.markdown(f"""
                      1.0 Flats ==> net {estimated_full_year_profit / 1000 :.1f} K€ per year<br>
                      {target_yeraly_profit/estimated_full_year_profit:.1f} Flats ==> net {target_yeraly_profit / 1000 :.1f} K€ per year<br>
+                     <br>
+                     GIVEN THAT miss {target_yeraly_profit/estimated_full_year_profit - structure_count:.1f} flats<br>
+                     <br>
+                     {average_intial_investment / 1000 :.1f} K€ ==> to buy and setup 1 Flat<br>
+                     {(target_yeraly_profit/estimated_full_year_profit - structure_count) * average_intial_investment / 1000:.1f} K€ ==> to buy and setup {target_yeraly_profit/estimated_full_year_profit - structure_count:.1f} Flat<br>
+
+
+                     ##### Additional estimated investment for a managerial annual salary: {(target_yeraly_profit/estimated_full_year_profit - structure_count) * average_intial_investment / 1000:.1f} K€
                      """,
                      unsafe_allow_html = True)
-
+        st.divider()
 #
-#       3rd Insight: Is this investment (buying flats like these ones in my city) profitable?
+#       3rd Insight: Is this investment and related job (buying flats in my city like "LA Cecchina", ... and managing them) profitable?
 #
+        net_historical_equity_return_rate = 8 # 8%
+        net_avg_italian_govt_bond_yield = 2.75 # 3% 
+        my_NetRentalYield = estimated_full_year_profit / average_intial_investment * 100
+        st.markdown(f"""
+                 ###### Do you suggest to buy a flat and manage it as like as {structure_names_list}? 
+                 """)
+        with st.expander(f"**On average, the estimated yearly Net Rental Yield (NRY) - coming from my properties - is {my_NetRentalYield:.2f}%.**", expanded = False):
+            st.markdown(f"""
+                     **Global Equity Benchmark: {net_historical_equity_return_rate:.2f}%**<br> 
+                     (High Risk and Inflation-devalued capital)<br>
+                     **Italian Government Bond: {net_avg_italian_govt_bond_yield:.2f}%**<br>
+                     (NO Risk but Inflation-devalued capital)<br>
 
 
+                     #### My yearly Net Rental Yield (NRY): {my_NetRentalYield:.2f}%
+                     Far less risky than stocks, but {my_NetRentalYield / net_avg_italian_govt_bond_yield :.2f} times more profitable than Italian government bonds, while simultaneously preserving the initial capital from inflation over time.
+                     
+                     """,
+                     unsafe_allow_html = True)
+ 
 
-        #st.write(f"")
+
         st.divider()
             
     else:
