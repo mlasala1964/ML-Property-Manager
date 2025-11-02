@@ -66,7 +66,9 @@ else:
 if "Year" not in st.session_state:
     st.session_state.Year = 2025
   
-
+# 1. Initialize a trigger to force the data refresh
+if 'data_refresh_timestamp' not in st.session_state:
+    st.session_state.data_refresh_timestamp = datetime.datetime.now()
 
 print('')    
 print('')    
@@ -84,7 +86,7 @@ st.header("ML Property Manager")
 # For every managed strucure Read the data contained in the related Google Spreadsheet 
 # The data are kept in memory (good choice?) in the "Data" item of the dictionary Structures[i] 
 @st.cache_data
-def ReadGSheets():
+def ReadGSheets(trigger):
     print('----------------------------------------------------> ReadGSheets Run number:', st.session_state.Run)
 
     #gs_connection = gspread.service_account(filename = service_account_file)
@@ -113,7 +115,7 @@ def ReadGSheets():
 
 #=============================================================================================================================
 @st.cache_resource
-def get_db_connection():
+def get_db_connection(trigger):
     """Create the connection to the DB in memory. 
     It's decorated as <cache_resource>: 
     It's executed only one time and the connection object is stateful - ie it's alive during the user web session - ."""
@@ -558,7 +560,7 @@ def HighLevelInsights():
 
     print('----------------------------------------------------> HighLevelInsights Run number:', st.session_state.Run)
 
-    connection =  get_db_connection()
+    connection =  get_db_connection(st.session_state.data_refresh_timestamp)
     cursor = connection.cursor()
     year = st.session_state.Year
 
@@ -719,7 +721,7 @@ def ProfitLostByStructure():
 
     print('----------------------------------------------------> ProfitLostByStructure Run number:', st.session_state.Run)
 
-    connection =  get_db_connection()
+    connection =  get_db_connection(st.session_state.data_refresh_timestamp)
     cursor = connection.cursor()
     year = st.session_state.Year
 
@@ -796,7 +798,7 @@ WHERE strftime('%Y', bookings_by_day.Day) = '{year}'
 UNION ALL
 
 SELECT 
-    MAX('3. Revenue:')                                                                                                     AS Metric
+    MAX('3. NET Revenue:')                                                                                                     AS Metric
     ,SUM(CASE WHEN bookings.StructureName = 'La Cecchina' 
                 THEN bookings_by_day.HostEarningsByDay - bookings_by_day.CleaningCostByDay - bookings_by_day.LaundryCostByDay 
                 ELSE 0 
@@ -897,7 +899,7 @@ SELECT
 UNION ALL
 
 SELECT 
-    MAX('4. Profit (Revenue - Common Cost):')                                                                                   AS Metric
+    MAX('4. Profit & Loss:')                                                                                   AS Metric
     ,SUM(CASE WHEN bookings.StructureName = 'La Cecchina' 
                 THEN bookings_by_day.HostEarningsByDay - bookings_by_day.CleaningCostByDay - bookings_by_day.LaundryCostByDay 
                 ELSE 0 
@@ -919,11 +921,34 @@ SELECT
  INNER JOIN common_costs_by_year ON (common_costs_by_year.StructureName = bookings.StructureName AND common_costs_by_year.Year ={year})
  WHERE strftime('%Y', bookings_by_day.Day) = '{year}'
 
+ORDER BY Metric
+    """
+    dataframe = pd.read_sql(select, connection)
+    st.dataframe(dataframe)
+
+
+def SoldNightFigures():
+
+    print('----------------------------------------------------> SoldNightFigures Run number:', st.session_state.Run)
+
+    connection =  get_db_connection(st.session_state.data_refresh_timestamp)
+    cursor = connection.cursor()
+    year = st.session_state.Year
+
+
+    select = f"""
+ SELECT 
+     MAX('0. Total Nights Sold:')                                                                                           AS Metric
+     ,SUM(CASE WHEN bookings.StructureName = 'La Cecchina' THEN 1 ELSE 0 END)                                               AS La_Cecchina        
+     ,SUM(CASE WHEN bookings.StructureName = 'Dalla Nonna' THEN 1 ELSE 0 END)                                               AS Dalla_Nonna        
+ FROM bookings_by_day
+ INNER JOIN bookings ON(bookings.booking_id = bookings_by_day.booking_id)
+ WHERE strftime('%Y', bookings_by_day.Day) = '{year}'
 
  UNION ALL
 
  SELECT 
-     MAX('z2. occupancy %:')                                                                                                      AS Metric
+     MAX('1. occupancy %:')                                                                                                      AS Metric
      ,ROUND(
      CAST(SUM(CASE WHEN bookings.StructureName = 'La Cecchina' THEN 1 ELSE 0 END) AS REAL)                                                    
      / MAX(CASE WHEN common_costs_by_year.StructureName = 'La Cecchina' THEN common_costs_by_year.Days ELSE 0 END)               
@@ -937,18 +962,18 @@ SELECT
  INNER JOIN common_costs_by_year ON (common_costs_by_year.StructureName = bookings.StructureName AND common_costs_by_year.Year ={year})
  WHERE strftime('%Y', bookings_by_day.Day) = '{year}'
 
- UNION ALL
+UNION ALL
 
- SELECT 
-     MAX('z5. Revenue:')                                                                                              AS Metric
-     ,SUM(CASE WHEN bookings.StructureName = 'La Cecchina' 
-                 THEN bookings_by_day.HostEarningsByDay - bookings_by_day.CleaningCostByDay - bookings_by_day.LaundryCostByDay 
-                 ELSE 0 
-         END)                                                                                                                    AS La_Cecchina        
-     ,SUM(CASE WHEN bookings.StructureName = 'Dalla Nonna' 
-                THEN bookings_by_day.HostEarningsByDay - bookings_by_day.CleaningCostByDay - bookings_by_day.LaundryCostByDay
-                ELSE 0
-        END)                                                                                                                    AS Dalla_Nonna        
+SELECT 
+    MAX('2. Paid by Guest per Day:')                                                                                            AS Metric
+    ,ROUND(
+    CAST(SUM(CASE WHEN bookings.StructureName = 'La Cecchina' THEN bookings_by_day.GuestAmountPaidByDay ELSE 0 END) AS REAL)   
+    / SUM(CASE WHEN bookings.StructureName = 'La Cecchina' THEN 1 ELSE 0 END) 
+    , 2)                                                                                                                        AS La_Cecchina        
+    ,ROUND(
+    CAST(SUM(CASE WHEN bookings.StructureName = 'Dalla Nonna' THEN bookings_by_day.GuestAmountPaidByDay ELSE 0 END) AS REAL)   
+    / SUM(CASE WHEN bookings.StructureName = 'Dalla Nonna' THEN 1 ELSE 0 END) 
+    , 2)                                                                                                                        AS Dalla_Nonna        
 FROM bookings_by_day
 INNER JOIN bookings ON(bookings.booking_id = bookings_by_day.booking_id)
 WHERE strftime('%Y', bookings_by_day.Day) = '{year}'
@@ -956,7 +981,7 @@ WHERE strftime('%Y', bookings_by_day.Day) = '{year}'
 UNION ALL
 
 SELECT 
-    MAX('z6. Revenue per Booked Day:')                                                                                                  AS Metric
+    MAX('3. NET Revenue per Booked Day:')                                                                                                  AS Metric
     ,ROUND(
     CAST(SUM(CASE WHEN bookings.StructureName = 'La Cecchina' 
                 THEN bookings_by_day.HostEarningsByDay - bookings_by_day.CleaningCostByDay - bookings_by_day.LaundryCostByDay 
@@ -976,75 +1001,12 @@ INNER JOIN bookings ON(bookings.booking_id = bookings_by_day.booking_id)
 INNER JOIN common_costs_by_year ON (common_costs_by_year.StructureName = bookings.StructureName AND common_costs_by_year.Year ={year})
 WHERE strftime('%Y', bookings_by_day.Day) = '{year}'
 
-UNION ALL 
-
-SELECT 
-    MAX('z3. Total Paid by Guest:')                                                                                              AS Metric
-    ,SUM(CASE WHEN bookings.StructureName = 'La Cecchina' THEN bookings_by_day.GuestAmountPaidByDay ELSE 0 END)                 AS La_Cecchina        
-    ,SUM(CASE WHEN bookings.StructureName = 'Dalla Nonna' THEN bookings_by_day.GuestAmountPaidByDay ELSE 0 END)                 AS Dalla_Nonna        
-FROM bookings_by_day
-INNER JOIN bookings ON(bookings.booking_id = bookings_by_day.booking_id)
-WHERE strftime('%Y', bookings_by_day.Day) = '{year}'
 
 UNION ALL 
 
-SELECT 
-    MAX('z4. Paid by Guest per Day:')                                                                                            AS Metric
-    ,ROUND(
-    CAST(SUM(CASE WHEN bookings.StructureName = 'La Cecchina' THEN bookings_by_day.GuestAmountPaidByDay ELSE 0 END) AS REAL)   
-    / SUM(CASE WHEN bookings.StructureName = 'La Cecchina' THEN 1 ELSE 0 END) 
-    , 2)                                                                                                                        AS La_Cecchina        
-    ,ROUND(
-    CAST(SUM(CASE WHEN bookings.StructureName = 'Dalla Nonna' THEN bookings_by_day.GuestAmountPaidByDay ELSE 0 END) AS REAL)   
-    / SUM(CASE WHEN bookings.StructureName = 'Dalla Nonna' THEN 1 ELSE 0 END) 
-    , 2)                                                                                                                        AS Dalla_Nonna        
-FROM bookings_by_day
-INNER JOIN bookings ON(bookings.booking_id = bookings_by_day.booking_id)
-WHERE strftime('%Y', bookings_by_day.Day) = '{year}'
-
-UNION ALL
-
-SELECT 
-    MAX('z7. Common Cost / Structure Cost:')                                                                                     AS Metric
-    ,MAX(CASE WHEN common_costs_by_year.StructureName = 'La Cecchina' THEN   common_costs_by_year.PropertyTax + common_costs_by_year.CondoFees 
-                + common_costs_by_year.ElectricityCost + common_costs_by_year.GasCost + WiFiCost + MaintenanceMiscellaneousCost + AmenitiesCost
-         ELSE 0 END)                                                                                                            AS La_Cecchina
-    ,MAX(CASE WHEN common_costs_by_year.StructureName = 'Dalla Nonna' THEN   common_costs_by_year.PropertyTax + common_costs_by_year.CondoFees 
-                + common_costs_by_year.ElectricityCost + common_costs_by_year.GasCost + WiFiCost + MaintenanceMiscellaneousCost + AmenitiesCost
-         ELSE 0 END)                                                                                                            AS Dalla_Nonna
-FROM common_costs_by_year
-WHERE common_costs_by_year.Year ={year}
-
-UNION ALL
-
-SELECT 
-    MAX('z8. Profit (Revenue - Common Cost):')                                                                                   AS Metric
-    ,SUM(CASE WHEN bookings.StructureName = 'La Cecchina' 
-                THEN bookings_by_day.HostEarningsByDay - bookings_by_day.CleaningCostByDay - bookings_by_day.LaundryCostByDay 
-                ELSE 0 
-         END)
-     -
-     MAX(CASE WHEN common_costs_by_year.StructureName = 'La Cecchina' THEN   common_costs_by_year.PropertyTax + common_costs_by_year.CondoFees 
-                 + common_costs_by_year.ElectricityCost + common_costs_by_year.GasCost + WiFiCost + MaintenanceMiscellaneousCost + AmenitiesCost
-          ELSE 0 END)                                                                                                            AS La_Cecchina
-     ,SUM(CASE WHEN bookings.StructureName = 'Dalla Nonna' 
-                 THEN bookings_by_day.HostEarningsByDay - bookings_by_day.CleaningCostByDay - bookings_by_day.LaundryCostByDay
-                 ELSE 0
-         END)
-     -
-     MAX(CASE WHEN common_costs_by_year.StructureName = 'Dalla Nonna' THEN   common_costs_by_year.PropertyTax + common_costs_by_year.CondoFees 
-                 + common_costs_by_year.ElectricityCost + common_costs_by_year.GasCost + WiFiCost + MaintenanceMiscellaneousCost + AmenitiesCost
-          ELSE 0 END)                                                                                                            AS La_Cecchina
- FROM bookings_by_day
- INNER JOIN bookings ON(bookings.booking_id = bookings_by_day.booking_id)
- INNER JOIN common_costs_by_year ON (common_costs_by_year.StructureName = bookings.StructureName AND common_costs_by_year.Year ={year})
- WHERE strftime('%Y', bookings_by_day.Day) = '{year}'
-
-
- UNION ALL
 
  SELECT 
-     MAX('z9. Profit x Booked Day:')                                                                                              AS Metric
+     MAX('4. Profit x Booked Day:')                                                                                              AS Metric
      ,ROUND(
      CAST((SUM(CASE WHEN bookings.StructureName = 'La Cecchina' 
                  THEN bookings_by_day.HostEarningsByDay - bookings_by_day.CleaningCostByDay - bookings_by_day.LaundryCostByDay 
@@ -1078,21 +1040,31 @@ ORDER BY Metric
     st.dataframe(dataframe)
 
 
-def SoldNightFigures():
+def trigger_data_refresh():
+    st.session_state.data_refresh_timestamp = datetime.datetime.now()
 
-    print('----------------------------------------------------> SoldNightFigures Run number:', st.session_state.Run)
+    Structures = ReadGSheets(st.session_state.data_refresh_timestamp)
+    connection = get_db_connection(st.session_state.data_refresh_timestamp)
+    LoadTablesFromSheets(connection, Structures)
+    CleaningData(connection, Structures)
+    LoadDWH(connection, Structures)
 
-    connection =  get_db_connection()
-    cursor = connection.cursor()
-    year = st.session_state.Year
+
+def DataRefresh():
+    print('----------------------------------------------------> DataRefresh Run number:', st.session_state.Run)
+
+    st.write(f"""
+             The last data refresh occurred on {st.session_state.data_refresh_timestamp.strftime("%d/%m/%Y %H:%M:%S")}
+             """)
+    st.button("DATA REFRESH", on_click=trigger_data_refresh)
 
 
 #=============================================================================================================================
 #=============================================================================================================================
 #=============================================================================================================================
 
-Structures = ReadGSheets()
-connection = get_db_connection()
+Structures = ReadGSheets(st.session_state.data_refresh_timestamp)
+connection = get_db_connection(st.session_state.data_refresh_timestamp)
 if not st.session_state.LoggedIn:
     LoadTablesFromSheets(connection, Structures)
     CleaningData(connection, Structures)
@@ -1105,12 +1077,19 @@ if not st.session_state.LoggedIn:
     #    pass
 
 year = st.session_state.Year
-HighLevelInsights_page = st.Page(HighLevelInsights, title= str(year) + " Insights", icon=":material/summarize:")
-ProfitLostByStructure_page = st.Page(ProfitLostByStructure, title= str(year) + " P&L by Structure", icon=":material/monitoring:")
-SoldNightFigures_page = st.Page(SoldNightFigures, title= str(year) + " Sold Night Figures", icon=":material/monitoring:")
+HighLevelInsights_page = st.Page(HighLevelInsights, title= str(year) + " Insights", icon="🏠")
+ProfitLostByStructure_page = st.Page(ProfitLostByStructure, title= str(year) + " P&L by Structure", icon="📈")
+SoldNightFigures_page = st.Page(SoldNightFigures, title= str(year) + " Sold Night Figures", icon="🌙")
+
+
+DataRefresh_page = st.Page(DataRefresh, title= "Data Refresh", icon="🔄")
+
+
+
 pg = st.navigation(
         {
             "Insights": [HighLevelInsights_page, ProfitLostByStructure_page, SoldNightFigures_page],
+            "Settings": [DataRefresh_page],
         }
     )
 pg.run()
