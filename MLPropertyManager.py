@@ -80,7 +80,7 @@ print('----------------------------------------------------> IS THE STARTUP PHAS
 
 
 st.set_page_config(page_title="ML Property Manager", layout="centered")
-st.header("ML Property Manager")
+st.header("ML Property Manager 1.0")
 
 #=============================================================================================================================
 # For every managed strucure Read the data contained in the related Google Spreadsheet 
@@ -221,6 +221,9 @@ def CleaningData(connection, Structures):
             print(f'The booking\'s dates are well set in the "{table_name}" sheet for the "{structure_name}" strucuture')
             #st.write(f'The booking\'s dates are well set in the "{table_name}" sheet for the "{structure_name}" strucuture')
         else:
+            # Nice To Have: 
+            # not report the rows with error but fix them with correct ToDate value
+            # How: using the CTE above, change the final SELECT in an UPDATE the column ToDate =  NextFromDate only for the rows with error
             for row in rows:
                 #print(f'"{structure_name}": in the row {row[1]} of the sheet "{table_name}" the booking has {row[3]} as last date that is not contiguous with next booking\'s  start date')
                 #st.write('---------- CHECK for any Gap or Overlapping periods in the booking rows -----------------------')
