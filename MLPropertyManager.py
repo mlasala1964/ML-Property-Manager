@@ -64,7 +64,7 @@ else:
     st.session_state.Run += 1
 
 if "Year" not in st.session_state:
-    st.session_state.Year = 2025
+    st.session_state.Year = 2026
   
 # 1. Initialize a trigger to force the data refresh
 if 'data_refresh_timestamp' not in st.session_state:
